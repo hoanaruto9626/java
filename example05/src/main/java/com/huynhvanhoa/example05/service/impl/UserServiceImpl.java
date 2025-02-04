@@ -45,7 +45,7 @@ public class UserServiceImpl implements UserService {
     @Autowired
     private AddressRepo addressRepo;
 
-    @Autowired 
+    @Autowired
     private CartService cartService;
 
     @Autowired
@@ -98,32 +98,39 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserResponse getAllUsers(Integer pageNumber, Integer pageSize, String sortBy, String sortOrder) {
-        Sort sortByAndOrder = sortOrder.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Sort sortByAndOrder = sortOrder.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending()
+                : Sort.by(sortBy).descending();
         Pageable pageDetails = PageRequest.of(pageNumber, pageSize, sortByAndOrder);
         Page<User> pageUsers = userRepo.findAll(pageDetails);
-
         List<User> users = pageUsers.getContent();
-        if (users.isEmpty()) {
+
+        if (users.size() == 0) {
             throw new APIException("No User exists !!!");
+        } else {
+            List<UserDTO> userDTOs = users.stream().map(user -> {
+                UserDTO dto = modelMapper.map(user, UserDTO.class);
+                if (!user.getAddresses().isEmpty()) {
+                    dto.setAddress(modelMapper.map(user.getAddresses().stream().findFirst().get(), AddressDTO.class));
+                }
+                CartDTO cart = (CartDTO) this.modelMapper.map(user.getCart(), CartDTO.class);
+                List<ProductDTO> products = user.getCart().getCartItems().stream()
+                        .map((item) -> modelMapper.map(item.getProduct(), ProductDTO.class))
+                        .collect(Collectors.toList());
+                dto.setCart(cart);
+                dto.getCart().setProducts(products);
+                return dto;
+            }).collect(Collectors.toList());
+
+            UserResponse userResponse = new UserResponse();
+            userResponse.setContent(userDTOs);
+            userResponse.setPageNumber(pageUsers.getNumber());
+            userResponse.setPageSize(pageUsers.getSize());
+            userResponse.setTotalElements(pageUsers.getTotalElements());
+            userResponse.setTotalPages(pageUsers.getTotalPages());
+            userResponse.setLastPage(pageUsers.isLast());
+
+            return userResponse;
         }
-
-        List<UserDTO> userDTOs = users.stream().map(user -> {
-            UserDTO dto = modelMapper.map(user, UserDTO.class);
-            if (!user.getAddresses().isEmpty()) {
-                dto.setAddress(modelMapper.map(user.getAddresses().stream().findFirst().get(), AddressDTO.class));
-            }
-            return dto;
-        }).collect(Collectors.toList());
-
-        UserResponse userResponse = new UserResponse();
-        userResponse.setContent(userDTOs);
-        userResponse.setPageNumber(pageUsers.getNumber());
-        userResponse.setPageSize(pageUsers.getSize());
-        userResponse.setTotalElements(pageUsers.getTotalElements());
-        userResponse.setTotalPages(pageUsers.getTotalPages());
-        userResponse.setLastPage(pageUsers.isLast());
-
-        return userResponse;
     }
 
     @Override
@@ -178,29 +185,51 @@ public class UserServiceImpl implements UserService {
         userRepo.delete(user);
         return "User with userId " + userId + " deleted successfully!!!";
     }
-    
+
     @Override
     public UserDTO getUserByEmail(String email) {
         User user = userRepo.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
-                
+
         UserDTO userDTO = modelMapper.map(user, UserDTO.class);
 
-        if(user.getAddresses() != null && !user.getAddresses().isEmpty()){
+        if (user.getAddresses() != null && !user.getAddresses().isEmpty()) {
             userDTO.setAddress(modelMapper.map(user.getAddresses().stream().findFirst().get(), AddressDTO.class));
         }
 
-        if(user.getCart() != null){
+        if (user.getCart() != null) {
             CartDTO cart = modelMapper.map(user.getCart(), CartDTO.class);
-            
+
             List<ProductDTO> products = user.getCart().getCartItems().stream()
-                .map(item->modelMapper.map(item.getProduct(), ProductDTO.class))
-                .collect(Collectors.toList());
-            
+                    .map(item -> modelMapper.map(item.getProduct(), ProductDTO.class))
+                    .collect(Collectors.toList());
+
             cart.setProducts(products);
             userDTO.setCart(cart);
         }
-        
+
         return userDTO;
+    }
+
+    public UserDTO updateUserRoles(Long userId, Long roleIds) {
+        try {
+           User user = (User)this.userRepo.findById(userId).orElseThrow(() -> {
+              return new ResourceNotFoundException("User", "id", userId);
+           });
+           user.getRoles().clear();
+           Role role;
+           if (roleIds == AppConstants.ADMIN_ID) {
+              role = (Role)this.roleRepo.findById(AppConstants.ADMIN_ID).get();
+              user.getRoles().add(role);
+           }
+  
+           role = (Role)this.roleRepo.findById(AppConstants.USER_ID).get();
+           user.getRoles().add(role);
+           User updatedUser = (User)this.userRepo.save(user);
+           UserDTO userDTO = (UserDTO)this.modelMapper.map(updatedUser, UserDTO.class);
+           return userDTO;
+        } catch (Exception var7) {
+           throw new APIException("Error updating user roles: " + var7.getMessage());
+        }
     }
 }

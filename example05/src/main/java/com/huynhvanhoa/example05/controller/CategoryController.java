@@ -59,7 +59,7 @@ public class CategoryController {
 
     }
 
-    @PostMapping("/admin/categories/{categoryId}")
+    @GetMapping("/public/categories/{categoryId}")
     public ResponseEntity<CategoryDTO> getOneCategory(@PathVariable Long categoryId) {
         CategoryDTO categoryDTO = categoryService.getCategoryById(categoryId);
 

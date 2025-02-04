@@ -13,6 +13,7 @@ import com.huynhvanhoa.example05.entity.Product;
 import com.huynhvanhoa.example05.exceptions.APIException;
 import com.huynhvanhoa.example05.exceptions.ResourceNotFoundException;
 import com.huynhvanhoa.example05.payloads.CartDTO;
+import com.huynhvanhoa.example05.payloads.CartItemDTO;
 import com.huynhvanhoa.example05.payloads.ProductDTO;
 import com.huynhvanhoa.example05.repository.CartItemRepo;
 import com.huynhvanhoa.example05.repository.CartRepo;
@@ -109,6 +110,18 @@ public class CartServiceImpl implements CartService {
         List<ProductDTO> products = cart.getCartItems().stream()
                 .map(p -> modelMapper.map(p.getProduct(), ProductDTO.class)).collect(Collectors.toList());
         cartDTO.setProducts(products);
+
+        List<CartItemDTO> cartItemDTOs = cart.getCartItems().stream().map(cartItem -> {
+            CartItemDTO cartItemDTO = new CartItemDTO();
+            cartItemDTO.setCartItemId(cartItem.getCartItemId());
+            cartItemDTO.setProduct(modelMapper.map(cartItem.getProduct(), ProductDTO.class));
+            cartItemDTO.setQuantity(cartItem.getQuantity());
+            cartItemDTO.setDiscount(cartItem.getDiscount());
+            cartItemDTO.setProductPrice(cartItem.getProductPrice());
+            return cartItemDTO;
+        }).collect(Collectors.toList());
+        cartDTO.setCartItemDTOs(cartItemDTOs);
+
         return cartDTO;
     }
 

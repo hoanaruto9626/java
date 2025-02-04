@@ -11,7 +11,8 @@ import logo from "./img/LogoHITC.png";
 
 // Create Document Component
 const MyDocument = ({ data }) => {
-  const { cartId, totalPrice, products } = data;
+  const { cartId, totalPrice, products, orderItems } = data;
+  const resource = localStorage.getItem('globalResponse');
 
   const styles = StyleSheet.create({
     page: {
@@ -117,49 +118,55 @@ const MyDocument = ({ data }) => {
     </View>
   );
 
-    const TableBody = () =>
-        products.map((product) => (
-        <View style={{ width: "100%", flexDirection: "row" }} key={product.productId}>
-            <View style={[styles.tbody, styles.tbody2]}>
-            <Text>{product.productName}</Text>
-            </View>
-            <View style={styles.tbody}>
-            <Text>{product.price.toFixed(2)}</Text>
-            </View>
-            <View style={styles.tbody}>
-            <Text>{product.quantity}</Text>
-            </View>
-            <View style={styles.tbody}>
-            <Text>{(product.price * product.quantity).toFixed(2)}</Text>
-            </View>
+  const TableBody = () => {
+    const dataItems = resource === "carts" ? products : orderItems;
+    return dataItems.map((product) => (
+      <View
+        style={{ width: "100%", flexDirection: "row" }}
+        key={product.productId || product.product.productId}
+      >
+        <View style={[styles.tbody, styles.tbody2]}>
+          <Text>{product.productName || product.product.productName}</Text>
         </View>
+        <View style={styles.tbody}>
+          <Text>{(product.price || product.product.price).toFixed(2)}</Text>
+        </View>
+        <View style={styles.tbody}>
+          <Text>{product.quantity}</Text>
+        </View>
+        <View style={styles.tbody}>
+          <Text>{((product.price * product.quantity) || (product.quantity * product.product.price)).toFixed(2)}</Text>
+        </View>
+      </View>
     ));
+  };
 
-    const TableTotal = () => (
-        <View style={{ width: "100%", flexDirection: "row" }}>
-            <View style={styles.total}>
-                <Text></Text>
-            </View>
-            <View style={styles.total}>
-                <Text></Text>
-            </View>
-            <View style={styles.tbody}>
-                <Text>Total</Text>
-            </View>
-            <View style={styles.tbody}>
-                <Text>{totalPrice}</Text>{/* .toFixed(2) */}
-            </View>
-        </View>
-    );
+  const TableTotal = () => (
+    <View style={{ width: "100%", flexDirection: "row" }}>
+      <View style={styles.total}>
+        <Text></Text>
+      </View>
+      <View style={styles.total}>
+        <Text></Text>
+      </View>
+      <View style={styles.tbody}>
+        <Text>Total</Text>
+      </View>
+      <View style={styles.tbody}>
+        <Text>{totalPrice}</Text>
+        {/* .toFixed(2) */}
+      </View>
+    </View>
+  );
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
         <InvoiceTitle />
-        <UserAddress/>
-        <TableHead/>
-        <TableBody/>
-        <TableTotal/>
+        <UserAddress />
+        <TableHead />
+        <TableBody />
+        <TableTotal />
       </Page>
     </Document>
   );

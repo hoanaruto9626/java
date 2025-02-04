@@ -77,6 +77,8 @@ export const dataProvider: DataProvider = {
             products: 'productId',
             categories: 'categoryId',
             carts: 'cartId',
+            users: 'userId',
+            orders: 'orderId',
             // Add more mappings as needed
         };
 
@@ -93,7 +95,7 @@ export const dataProvider: DataProvider = {
 
         console.log('Request filter:', filter);
         console.log('user email: ', localStorage.getItem('username'));
-        
+
         let url: string;
 
         if (filter && filter.search) {
@@ -104,41 +106,34 @@ export const dataProvider: DataProvider = {
             const categoryId = filter.categoryId;
             delete query.categoryId;
             url = `${apiUrl}/public/categories/${categoryId}/${resource}?${new URLSearchParams(query).toString()}`;
+        } else if (resource === "carts" || resource === "users") {
+            url = `${apiUrl}/admin/users`;
+        } else if (resource === "orders") {
+            url = `${apiUrl}/admin/orders`;
         } else {
-            if (resource === "carts") {
-                url = `${apiUrl}/admin/${resource}`;
-            }
-            else {
-                url = `${apiUrl}/public/${resource}?${new URLSearchParams(query).toString()}`;
-            }
+            url = `${apiUrl}/public/${resource}?${new URLSearchParams(query).toString()}`;
         }
 
         console.log('Request URL:', url);
 
+        let data;
+
         return httpClient.get(url).then(({ json }) => {
             const baseUrl = 'http://localhost:8080/api/public/products/image/';
-            // if(resource === "carts"){
-            //     data = json.content.map((item: { [x: string]: any; image: any; }) => ({
-            //         id: item.cart.cartId,
-            //         ...item,
-            //         image: item.image ? `${baseUrl}${item.image}` : null
-            //     }));
-            // }
-            // else{
-            //     data = json.content.map((item: { [x: string]: any; image: any; }) => ({
-            //         id: item[idField],
-            //         ...item,
-            //         image: item.image ? `${baseUrl}${item.image}` : null
-            //     }));
-            // }
-
-            const responseContent = Array.isArray(json.content) ? json.content : Array.isArray(json) ? json : [];
-
-            const data = responseContent.map((item: { [x: string]: any; image: any; }) => ({
-                id: item[idField],
-                ...item,
-                image: item.image ? `${baseUrl}${item.image}` : null,
-            }));
+            if (resource === "carts") {
+                data = json.content.map((item: { [x: string]: any; image: any; }) => ({
+                    id: item.cart.cartId,
+                    ...item,
+                    image: item.image ? `${baseUrl}${item.image}` : null
+                }));
+            }
+            else {
+                data = json.content.map((item: { [x: string]: any; image: any; }) => ({
+                    id: item[idField],
+                    ...item,
+                    image: item.image ? `${baseUrl}${item.image}` : null
+                }));
+            }
 
             console.log('data list:', data);
             return {
@@ -229,9 +224,16 @@ export const dataProvider: DataProvider = {
     },
 
     update: async (resource: string, params: UpdateParams): Promise<UpdateResult> => {
-        const url = `${apiUrl}/admin/${resource}/${params.id}`;
-        const { data } = params;
 
+        const { data } = params;
+        console.log("params", params);
+        let url: string;
+        if (resource === "users") {
+            url = `${apiUrl}/public/${resource}/role/${params.id}/${params.data.rolesUpdate[0]}`;
+        } else {
+            url = `${apiUrl}/admin/${resource}/${params.id}`;
+        }
+        console.log("paramsurl", url);
         // Perform the PUT request to update the resource
         const result = await httpClient.put(url, data);
 
@@ -245,38 +247,33 @@ export const dataProvider: DataProvider = {
     },
 
     getOne: async (resource: string, params: GetOneParams): Promise<GetOneResult> => {
-        console.log('getOne called for resource:', resource, 'with params:', params);
         let url: string;
-        // if (resource === "carts") {
-        //     url = `${apiUrl}/public/users/${params.meta.email}/${resource}/${params.id}`;
-        // } else {
-        //     url = `${apiUrl}/public/${resource}/${params.id}`;
-        // }
-
         if (resource === "carts") {
-            url = `${apiUrl}/public/users/${localStorage.getItem('username')}/${resource}/${params.id}`;
+            url = `${apiUrl}/public/users/${params.meta.email}/${resource}/${params.id}`;
+        } else if (resource === "orders") {
+            url = `${apiUrl}/public/users/${params.meta.email}/${resource}/${params.id}`;
         } else {
             url = `${apiUrl}/public/${resource}/${params.id}`;
         }
 
         const result = await httpClient.get(url);
 
-        console.log('API Response:', result.json);
-
         const idFieldMapping: { [key: string]: string } = {
             products: 'productId',
             categories: 'categoryId',
             carts: 'cartId',
-            // Add more mappings as needed
+            orders: 'orderId' // Mapping for orders
         };
 
         const idField = idFieldMapping[resource] || 'id';
         const baseUrl = 'http://localhost:8080/api/public/products/image/'; // Base URL for product images
+
         let data;
-        // Format the cart data
+
         if (resource === "carts") {
+            // Process cart data
             data = {
-                id: result.json[idField], // Correctly mapping the ID field
+                id: result.json[idField],
                 totalPrice: result.json.totalPrice,
                 products: result.json.products.map((product: any) => ({
                     id: product.productId,
@@ -293,11 +290,43 @@ export const dataProvider: DataProvider = {
                     } : null,
                 }))
             };
-        }
-        else {
+        } else if (resource === "orders") {
+            // Process order data
+            data = {
+                id: result.json[idField],  // Map the orderId field
+                email: result.json.email,
+                orderDate: result.json.orderDate,
+                totalAmount: result.json.totalAmount,
+                orderStatus: result.json.orderStatus,
+                payment: result.json.payment ? {
+                    id: result.json.payment.paymentId,
+                    method: result.json.payment.paymentMethod
+                } : null,
+                orderItems: result.json.orderItems.map((orderItem: any) => ({
+                    id: orderItem.orderItemId,
+                    product: {
+                        id: orderItem.product.productId,
+                        productName: orderItem.product.productName,
+                        image: orderItem.product.image ? `${baseUrl}${orderItem.product.image}` : null,
+                        description: orderItem.product.description,
+                        category: orderItem.product.category ? {
+                            id: orderItem.product.category.categoryId,
+                            name: orderItem.product.category.categoryName
+                        } : null,
+                        price: orderItem.product.price,
+                        specialPrice: orderItem.product.specialPrice,
+                        discount: orderItem.product.discount,
+                        quantity: orderItem.product.quantity
+                    },
+                    orderedQuantity: orderItem.quantity,
+                    orderedProductPrice: orderItem.orderedProductPrice,
+                    discount: orderItem.discount
+                }))
+            };
+        } else {
+            // Generic data processing
             data = {
                 id: result.json[idField],
-
                 ...result.json
             };
         }

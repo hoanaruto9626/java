@@ -18,6 +18,9 @@ public class JWTUtil {
     @Value("${jwt_secret}")
     private String secret;
 
+    public JWTUtil() {
+    } 
+
     public String generateToken(String email) throws IllegalArgumentException, JWTCreationException {
         return JWT.create()
                 .withSubject("User Details")

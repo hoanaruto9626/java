@@ -10,10 +10,10 @@ const PDFButton = () => {
 
     useEffect(() => {
         const fetchData = async () => {
-            const cartId = localStorage.getItem('cartId');
-            console.log("Cart ID:", cartId);
+            const cartId = localStorage.getItem('globalCartId');
             const token = localStorage.getItem('jwt-token');
-            const email = localStorage.getItem('username');
+            const email = localStorage.getItem('globalEmailCart');
+            const globalResponse = localStorage.getItem('globalResponse');
 
             if (!cartId) {
                 setError(new Error('No cart ID found in localStorage'));
@@ -28,12 +28,23 @@ const PDFButton = () => {
             }
 
             try {
-                const response = await fetch(`http://localhost:8080/api/public/users/${email}/carts/${cartId}`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                    },
-                });
+                let response;
+                if(globalResponse == "orders"){
+                    response = await fetch(`http://localhost:8080/api/public/users/${email}/orders/${cartId}`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                        },
+                    });
+                }
+                else{
+                    response = await fetch(`http://localhost:8080/api/public/users/${email}/carts/${cartId}`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                        },
+                    });
+                }
 
                 if (!response.ok) {
                     throw new Error('Network response was not ok');
@@ -88,10 +99,11 @@ const PDFButton = () => {
 
     return (
         <BlobProvider document={<MyDocument data={data} />}>
-            {({ url, blob }) => (
+            {({ url }) => (
                 <a 
                     href={url} 
                     target="_blank" 
+                    rel="noopener noreferrer"
                     style={styles.btn}
                     onMouseEnter={handleMouseEnter}
                     onMouseLeave={handleMouseLeave}
